@@ -7,6 +7,35 @@ var router = Router();
 // JWT generation and verification
 const jwt = require('jsonwebtoken');
 
+router.get('/', (req, res) => {
+	res.status(200).json({
+		hello: "world"
+	})
+});
+
+
+router.get('/get_categories', (req, res) => {
+	const sql = `SELECT * FROM category`;
+	connection.query(sql, (err, results, fields) => {
+		let arr = []
+		console.log(results)
+		for(let i=0;i<results.length; i++) {
+			let _resultObj = [results[i]["id"], results[i]["name"]]
+			arr = arr.concat([_resultObj])
+		}
+		if(results === undefined || results.length === 0) {
+			return res.status(404).json({
+				success: false,
+				msg: "categories not found",
+			});
+		} else {
+			res.status(200).json({
+				result: arr
+			})
+		}
+	})
+});
+
 /**
  * @method GET
  * @route GET api/items/count_comments_by_nft/:chainId/:nftAddress/:tokenId
@@ -16,6 +45,7 @@ const jwt = require('jsonwebtoken');
  * @param nftAddress
  * @param tokenId
 */
+
 router.get('/count_comments_by_nft/:chainId/:nftAddress/:tokenId', (req, res) => {
 	const sql = `SELECT count(*) as num from comments where chainId = '${req.params.chainId}' and lower(nftAddress) = '${req.params.nftAddress.toLowerCase()}' and tokenId = ${req.params.tokenId} limit 1`;
 	connection.query(sql, (err, results, fields) => {
