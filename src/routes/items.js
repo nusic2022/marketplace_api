@@ -8,11 +8,21 @@ var router = Router();
 const jwt = require('jsonwebtoken');
 
 router.get('/', (req, res) => {
-	res.status(200).json({
-		hello: "world"
+	const sql = `SELECT * FROM nfts`;
+	connection.query(sql, (err, results, fields) => {
+		console.log(results)
+		if(results === undefined || results.length === 0) {
+			return res.status(404).json({
+				success: false,
+				msg: "categories not found",
+			});
+		} else {
+			res.status(200).json({
+				success: true,
+			})
+		}
 	})
 });
-
 
 router.get('/get_categories', (req, res) => {
 	const sql = `SELECT * FROM category`;
@@ -36,6 +46,34 @@ router.get('/get_categories', (req, res) => {
 	})
 });
 
+router.post('/add_items', (req, res) => {
+	const chainId = req.body.chainId;
+	const nftAddress = req.body.nftAddress;
+	const tokenId = req.body.tokenId;
+	const tokenURI = req.body.tokenURI;
+	const owner = req.body.owner;
+	const collectionId = req.body.collectionId;
+	const categoryId = req.body.categoryId;
+	console.log(req.body)
+	const sql = `
+	INSERT INTO nfts 
+	VALUES(default, ${chainId}, '${nftAddress.toLowerCase()}', ${tokenId}, '${tokenURI}', '${owner.toLowerCase()}', 2022, ${collectionId}, ${categoryId}, 0, 0)
+	`
+	console.log(sql)
+	connection.execute(sql, (err, results, fields) => {
+		if(results === undefined || results.length === 0) {
+			return res.json({
+				success: false,
+			});
+		} else {
+			return res.json({
+				success: true,
+			})
+		}
+	})
+
+})
+
 /**
  * @method GET
  * @route GET api/items/count_comments_by_nft/:chainId/:nftAddress/:tokenId
@@ -55,7 +93,7 @@ router.get('/count_comments_by_nft/:chainId/:nftAddress/:tokenId', (req, res) =>
 				msg: "address is not found.",
 			});
 		} else {
-			res.status(200).json({
+			return res.status(200).json({
 				success: true,
 				chainId: req.params.chainId,
 				nftAddress: req.params.nftAddress,
