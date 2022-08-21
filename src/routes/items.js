@@ -46,20 +46,20 @@ router.get('/get_categories', (req, res) => {
 	})
 });
 
-router.post('/add_items', (req, res) => {
+router.post('/add_items', passport.authenticate('jwt', {session: false}), (req, res) => {
 	const chainId = req.body.chainId;
 	const nftAddress = req.body.nftAddress;
 	const tokenId = req.body.tokenId;
 	const tokenURI = req.body.tokenURI;
-	const owner = req.body.owner;
+	const owner = req.user.address;// req.body.owner;
 	const collectionId = req.body.collectionId;
 	const categoryId = req.body.categoryId;
-	console.log(req.body)
+	// console.log(req.body)
 	const sql = `
 	INSERT INTO nfts 
-	VALUES(default, ${chainId}, '${nftAddress.toLowerCase()}', ${tokenId}, '${tokenURI}', '${owner.toLowerCase()}', 2022, ${collectionId}, ${categoryId}, 0, 0)
+	VALUES(default, ${chainId}, '${nftAddress.toLowerCase()}', ${tokenId}, '${tokenURI}', '${owner.toLowerCase()}', unix_timestamp(), ${collectionId}, ${categoryId}, 0, 0)
 	`
-	console.log(sql)
+	// console.log(sql)
 	connection.execute(sql, (err, results, fields) => {
 		if(results === undefined || results.length === 0) {
 			return res.json({
@@ -227,6 +227,22 @@ router.get('/count_favour_by_nft/:chainId/:nftAddress/:tokenId', (req, res) => {
 	})
 })
 
+router.post('/get_my_favours', passport.authenticate('jwt', {session: false}), (req, res) => {
+	const chainId = req.body.chainId;
+	const nftAddress = req.body.nftAddress;
+	const sql = `select * from favour where chainId = ${chainId} and lower(nftAddress) = '${nftAddress}' 
+							 and lower(fromAddress) = '${req.body.address.toLowerCase()}'`;
+	console.log(sql);
+	connection.query(sql, (err, results, fields) => {
+		let tokenIds = [];
+		for(let i = 0; i < results.length; i++) tokenIds.push(results[i].tokenId);
+		return res.status(200).json({
+			success: true,
+			tokenIds
+		})
+	})
+})
+
 /**
  * @method POST
  * @route POST api/items/add_favour
@@ -254,11 +270,19 @@ router.post('/add_favour', passport.authenticate('jwt', {session: false}), (req,
 					success: false,
 					msg: 'Add favour fail'
 				}) 
-				return res.status(200).json({
-					success: true,
-					chainId, nftAddress, tokenId,
-					id: results.insertId,
-					msg: 'Add favour successfully'
+				const sql = `update nfts set favour = favour + 1 where chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' and tokenId = ${tokenId}`;
+				// console.log(sql);
+				connection.execute(sql, (err, results, fields) => {
+					if(err) return res.status(200).json({
+						success: false,
+						msg: 'Add like fail'
+					})
+					return res.status(200).json({
+						success: true,
+						chainId, nftAddress, tokenId,
+						id: results.insertId,
+						msg: 'Add favour successfully'
+					})
 				})
 			})		
 		}
@@ -292,10 +316,17 @@ router.post('/remove_favour', passport.authenticate('jwt', {session: false}), (r
 					success: false,
 					msg: 'Remove favour fail'
 				}) 
-				return res.status(200).json({
-					success: true,
-					chainId, nftAddress, tokenId,
-					msg: 'Remove favour successfully'
+				const sql = `update nfts set favour = favour - 1 where favour > 0 and chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' and tokenId = ${tokenId}`;
+				connection.query(sql, (err, results, fields) => {
+					if(err) return res.status(200).json({
+						success: false,
+						msg: 'Remove like fail'
+					})
+					return res.status(200).json({
+						success: true,
+						chainId, nftAddress, tokenId,
+						msg: 'Remove favour successfully'
+					})
 				})
 			})
 		}
@@ -313,37 +344,37 @@ router.post('/remove_favour', passport.authenticate('jwt', {session: false}), (r
  * @param tokenId
  * @param action "add" - like, "del" - unlike
  */
- router.post('/set_like', passport.authenticate('jwt', {session: false}), (req, res) => {
-	const chainId = req.body.chainId;
-	const nftAddress = req.body.nftAddress;
-	const tokenId = req.body.tokenId;
-	const action = req.body.action;
-	const sql = `SELECT * from nfts where chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' and tokenId = ${tokenId} limit 1`;
-	connection.query(sql, (err, results) => {
-		if(results === undefined || results.length === 0) return res.status(200).json({
-			success: false,
-			msg: 'NFT is not exist'
-		})
-		else {
-			let sql = '';
-			if(action === 'add') sql = `Update nfts set like = like + 1 where chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' and tokenId = ${tokenId}`;
-			else if(action === 'del') sql = `Update nfts set like = like - 1 where chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' and tokenId = ${tokenId} and like > 0`;
-			connection.execute(sql, (err, results, fields) => {
-				if(err) return res.status(200).json({
-					success: false,
-					msg: 'Update like fail'
-				}) 
-				return res.status(200).json({
-					success: true,
-					chainId, 
-					nftAddress, 
-					tokenId, action,
-					msg: 'Update like successfully'
-				})
-			})		
-		}
-	})
-})
+//  router.post('/set_like', passport.authenticate('jwt', {session: false}), (req, res) => {
+// 	const chainId = req.body.chainId;
+// 	const nftAddress = req.body.nftAddress;
+// 	const tokenId = req.body.tokenId;
+// 	const action = req.body.action;
+// 	const sql = `SELECT * from nfts where chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' and tokenId = ${tokenId} limit 1`;
+// 	connection.query(sql, (err, results) => {
+// 		if(results === undefined || results.length === 0) return res.status(200).json({
+// 			success: false,
+// 			msg: 'NFT is not exist'
+// 		})
+// 		else {
+// 			let sql = '';
+// 			if(action === 'add') sql = `Update nfts set like = like + 1 where chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' and tokenId = ${tokenId}`;
+// 			else if(action === 'del') sql = `Update nfts set like = like - 1 where chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' and tokenId = ${tokenId} and like > 0`;
+// 			connection.execute(sql, (err, results, fields) => {
+// 				if(err) return res.status(200).json({
+// 					success: false,
+// 					msg: 'Update like fail'
+// 				}) 
+// 				return res.status(200).json({
+// 					success: true,
+// 					chainId, 
+// 					nftAddress, 
+// 					tokenId, action,
+// 					msg: 'Update like successfully'
+// 				})
+// 			})		
+// 		}
+// 	})
+// })
 
 /**
  * @method GET
@@ -650,8 +681,14 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 	// where: collection, category, owner, status
 	// order by : createAt, price, staking, like, tokenId
 	// Desc by: createAtDesc, priceDesc, stakingDesc, likeDesc, tokenIdDesc
+	console.log("/get_nfts");
 	let sql = 
-		`select n.*, o.*, s.amount as staking from nfts n 
+		`select n.*, 
+		o.auctionId, o.count, o.paymentToken, o.amount, o.sellerAddress, o.blockNumber, 
+		o.transactionHash, o.action, o.createdAt, o.startingPrice, o.startDate, o.buyerAmount, 
+		o.buyerAddress, o.buyerBlockNumber, o.buyerTransactionHash, o.buyerAction, o.buyerTimestamp, 
+		o.cancelSale,
+		s.amount as staking from nfts n 
 		left join orders o 
 		on n.chainId = o.chainId and lower(n.nftAddress) = lower(o.nftAddress) and n.tokenId = o.tokenId
 		left join staking s
@@ -665,7 +702,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 		${req.body.createAt === undefined ? '' : `n.createAt * 1 ${req.body.createAtDesc === undefined ? '' : 'desc'},`}
 		${req.body.price === undefined ? '' : `o.startingPrice * 1 ${req.body.priceDesc === undefined ? '' : 'desc'},`}
 		${req.body.staking === undefined ? '' : `staking ${req.body.stakingDesc === undefined ? '' : 'desc'},`}
-		${req.body.like === undefined ? '' : `n.like ${req.body.likeDesc === undefined ? '' : 'desc'},`}
+		${req.body.like === undefined ? '' : `n.favour ${req.body.likeDesc === undefined ? '' : 'desc'},`}
 		n.tokenId ${req.body.tokenIdDesc === undefined ? '' : 'desc'}
 		${req.body.offset === undefined || req.body.rows === undefined ? '' : `limit ${req.body.offset}, ${req.body.rows}`}`;
 	// console.log(sql);
