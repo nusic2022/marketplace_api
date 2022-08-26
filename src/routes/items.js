@@ -682,6 +682,13 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 	// order by : createAt, price, staking, like, tokenId
 	// Desc by: createAtDesc, priceDesc, stakingDesc, likeDesc, tokenIdDesc
 	console.log("/get_nfts");
+	const saleStatus = req.body.saleStatus === undefined ? 4 : req.body.saleStatus; // 0- onsale, 1- sold, 2- never listed, 3- unlisted, 4- all but not sold, 5- all
+	let statusCondition = '';
+	if(saleStatus === 0) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is null and cancelSale = 0`;
+	else if(saleStatus === 1) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is not null and cancelSale = 0`;
+	else if(saleStatus === 2) statusCondition = `and o.sellerAddress is null`;
+	else if(saleStatus === 3) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is null and cancelSale = 1`;
+	else if(saleStatus === 4) statusCondition = `and o.buyerAddress is null`;
 	let sql = 
 		`select n.*, 
 		o.auctionId, o.count, o.paymentToken, o.amount, o.sellerAddress, o.blockNumber, 
@@ -696,6 +703,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 		where n.chainId = ${req.body.chainId} and lower(n.nftAddress) = '${req.body.nftAddress.toLowerCase()}' 
 		${req.body.collection === undefined ? '' : `and n.collectionId = ${req.body.collection}`}
 		${req.body.category === undefined ? '' : `and n.categoryId = ${req.body.category}`}
+		${statusCondition}
 		${req.body.owner === undefined ? '' : `and n.owner = '${req.body.owner}'`}
 		${req.body.status === undefined ? '' : `and n.status = ${req.body.status}`}
 		order by 
@@ -705,7 +713,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 		${req.body.like === undefined ? '' : `n.favour ${req.body.likeDesc === undefined ? '' : 'desc'},`}
 		n.tokenId ${req.body.tokenIdDesc === undefined ? '' : 'desc'}
 		${req.body.offset === undefined || req.body.rows === undefined ? '' : `limit ${req.body.offset}, ${req.body.rows}`}`;
-	// console.log(sql);
+	console.log(sql);
 	connection.query(sql, (err, results) => {
 		if(err) return res.status(200).json({
 			success: false,
