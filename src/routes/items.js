@@ -232,7 +232,7 @@ router.post('/get_my_favours', passport.authenticate('jwt', {session: false}), (
 	const nftAddress = req.body.nftAddress;
 	const sql = `select * from favour where chainId = ${chainId} and lower(nftAddress) = '${nftAddress}' 
 							 and lower(fromAddress) = '${req.body.address.toLowerCase()}'`;
-	console.log(sql);
+	// console.log(sql);
 	connection.query(sql, (err, results, fields) => {
 		let tokenIds = [];
 		for(let i = 0; i < results.length; i++) tokenIds.push(results[i].tokenId);
@@ -495,7 +495,6 @@ router.get('/get_my_all_nfts/:chainId/:nftAddress', passport.authenticate('jwt',
 							WHERE n.chainId = ${req.params.chainId} and lower(n.nftAddress) = '${req.params.nftAddress.toLowerCase()}' 
 							and lower(o.sellerAddress) = '${req.user.address.toLowerCase()}' and isNull(o.buyerAddress) 
 							and lower(n.owner) = '${req.user.address.toLowerCase()}' and lower(o.contractAddress) = '${req.params.contractAddress.toLowerCase()}' 
-							and o.cancelSale = 0
 							${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
 	// console.log(sql);
 	connection.query(sql, (err, results, fields) => {
@@ -618,41 +617,6 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 
 // ======================= Below is Marketplace API ============================
 /**
- * @method GET
- * @route GET api/items/get_nfts_order_by_create_time/:chainId/:nftAddress/:desc/:offset/:rows
- * @desc  Get nfts order by create time
- * @access Public
- * @param chainId
- * @param nftAddress
- * @param desc order by desc
- * @param offset
- * @param rows
- */
-// router.get('/get_nfts_order_by_create_time/:chainId/:nftAddress/:desc/:offset/:rows', (req, res) => {
-// 	const desc = req.params.desc === undefined ? '' : req.params.desc;
-// 	const chainId = req.params.chainId;
-// 	const nftAddress = req.params.nftAddress;
-// 	const offset = req.params.offset;
-// 	const rows = req.query.rows;
-// 	const sql = `Select * from nfts where chainId = ${chainId} and lower(nftAddress) = '${nftAddress.toLowerCase()}' 
-// 							 order by createAt ${desc} 
-// 							 ${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
-// 	connection.query(sql, (err, results) => {
-// 		if(err) return res.status(200).json({
-// 			success: false,
-// 			msg: 'Fetch NFTs order by create time fail'
-// 		}) 
-// 		else {
-// 			return res.status(200).json({
-// 				success: true,
-// 				count: results.length,
-// 				list: results
-// 			})
-// 		}
-// 	})
-// })
-
-/**
  * @method POST
  * @route POST api/items/get_nfts/
  * @desc  Get nfts order by create time
@@ -681,20 +645,29 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 	// where: collection, category, owner, status
 	// order by : createAt, price, staking, like, tokenId
 	// Desc by: createAtDesc, priceDesc, stakingDesc, likeDesc, tokenIdDesc
-	console.log("/get_nfts");
-	const saleStatus = req.body.saleStatus === undefined ? 4 : req.body.saleStatus; // 0- onsale, 1- sold, 2- never listed, 3- unlisted, 4- all but not sold, 5- all
+
+	// 0- all onsale
+	// 1- my onsale nfts(req.body.seller is required), 
+	// 2- my sold nfts(req.body.seller is required)
+	// 3- my unlisted nfts(req.body.seller is required)
+	const type = req.body.type === undefined ? 4 : req.body.type; 
+
 	let statusCondition = '';
-	if(saleStatus === 0) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is null and cancelSale = 0`;
-	else if(saleStatus === 1) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is not null and cancelSale = 0`;
-	else if(saleStatus === 2) statusCondition = `and o.sellerAddress is null`;
-	else if(saleStatus === 3) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is null and cancelSale = 1`;
-	else if(saleStatus === 4) statusCondition = `and o.buyerAddress is null`;
+	if(type === 0) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and o.sellerAddress is not null and o.buyerAddress is null`;
+	// else if(type === 1) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is not null`;
+	// else if(type === 2) statusCondition = `and o.sellerAddress is null`;
+	// else if(type === 3) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is null`;
+	// else if(type === 4) statusCondition = `and o.buyerAddress is null`;
+	// else if(type === 5) statusCondition = `and o.sellerAddress is null or (o.sellerAddress is not null and o.buyerAddress is null)`;
+	else if(type === 1) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and lower(o.sellerAddress) = lower('${req.body.seller}') and o.buyerAddress is null`;
+	else if(type === 2) statusCondition = `and lower(o.sellerAddress) = lower('${req.body.seller}') and o.buyerAddress is not null`;
+	else if(type === 3) statusCondition = `and lower(n.owner) = lower('${req.body.seller}')`;
+
 	let sql = 
 		`select n.*, 
 		o.auctionId, o.count, o.paymentToken, o.amount, o.sellerAddress, o.blockNumber, 
 		o.transactionHash, o.action, o.createdAt, o.startingPrice, o.startDate, o.buyerAmount, 
-		o.buyerAddress, o.buyerBlockNumber, o.buyerTransactionHash, o.buyerAction, o.buyerTimestamp, 
-		o.cancelSale,
+		o.buyerAddress, o.buyerBlockNumber, o.buyerTransactionHash, o.buyerAction, o.buyerTimestamp,
 		s.amount as staking from nfts n 
 		left join orders o 
 		on n.chainId = o.chainId and lower(n.nftAddress) = lower(o.nftAddress) and n.tokenId = o.tokenId
@@ -704,7 +677,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 		${req.body.collection === undefined ? '' : `and n.collectionId = ${req.body.collection}`}
 		${req.body.category === undefined ? '' : `and n.categoryId = ${req.body.category}`}
 		${statusCondition}
-		${req.body.owner === undefined ? '' : `and n.owner = '${req.body.owner}'`}
+		${req.body.owner === undefined ? '' : `and lower(n.owner) = lower('${req.body.owner}')`}
 		${req.body.status === undefined ? '' : `and n.status = ${req.body.status}`}
 		order by 
 		${req.body.createAt === undefined ? '' : `n.createAt * 1 ${req.body.createAtDesc === undefined ? '' : 'desc'},`}
@@ -713,6 +686,10 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 		${req.body.like === undefined ? '' : `n.favour ${req.body.likeDesc === undefined ? '' : 'desc'},`}
 		n.tokenId ${req.body.tokenIdDesc === undefined ? '' : 'desc'}
 		${req.body.offset === undefined || req.body.rows === undefined ? '' : `limit ${req.body.offset}, ${req.body.rows}`}`;
+
+	// filter the multi cancelSale orders, just get the latest one
+	sql = `select *, max(a.auctionId) from(${sql}) as a group by a.tokenId`;
+
 	console.log(sql);
 	connection.query(sql, (err, results) => {
 		if(err) return res.status(200).json({
@@ -728,5 +705,6 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 		}
 	})
 })
+
 
 module.exports = router;
