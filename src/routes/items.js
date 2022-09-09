@@ -477,6 +477,36 @@ router.get('/get_my_all_nfts/:chainId/:nftAddress', passport.authenticate('jwt',
 
 /**
  * @method GET
+ * @rout GET api/items/get_nft_by_id/:chainId/:nftAddress/:tokenId
+ * @desc get a nft by database id
+ * @access Public
+ * @param id the database id
+ */
+router.get('/get_nft_by_id/:chainId/:nftAddress/:tokenId', (req, res) => {
+	const sql = `SELECT n.*, o.auctionId, o.count, o.paymentToken, o.amount, o.sellerAddress, o.blockNumber, o.transactionHash, o.action, o.createdAt as orderCreateAt, o.startingPrice, o.startDate, o.endDate, o.buyerAmount, o.buyerAddress, o.buyerBlockNumber, o.buyerTransactionHash, o.buyerAction, o.buyerTimestamp, o.cancelSale from nfts n
+	left join orders o
+	on n.tokenId = o.tokenId and n.chainId = o.chainId and n.nftAddress = o.nftAddress
+	where n.tokenId = ${req.params.tokenId} and n.chainId = ${req.params.chainId} and lower(n.nftAddress) = '${req.params.nftAddress.toLowerCase()}'
+	order by o.id desc
+	limit 1;`
+	// console.log(sql);
+	connection.query(sql, (err, results, fields) => {
+		if(err) return res.status(200).json({
+			success: false,
+			msg: 'Fetch nft fail'
+		})
+		else {
+			return res.status(200).json({
+				success: true,
+				count: results.length,
+				list: results
+			})
+		}
+	})
+})
+
+/**
+ * @method GET
  * @route GET api/items/get_my_listed_nfts/:chainId/:contractAddress/:nftAddress
  * @desc get all of my nft for nft contract
  * @access Private
@@ -653,7 +683,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 	const type = req.body.type === undefined ? 4 : req.body.type; 
 
 	let statusCondition = '';
-	if(type === 0) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and o.sellerAddress is not null and o.buyerAddress is null`;
+	if(type === 0) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and o.sellerAddress is not null and lower(o.sellerAddress) <> lower('${req.body.seller}') and o.buyerAddress is null`;
 	// else if(type === 1) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is not null`;
 	// else if(type === 2) statusCondition = `and o.sellerAddress is null`;
 	// else if(type === 3) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is null`;
