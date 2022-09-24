@@ -721,8 +721,8 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 
 	// filter the multi cancelSale orders, just get the latest one
 	sql = `select *, max(a.auctionId) from(${sql}) as a group by a.tokenId`;
-
-	console.log(sql);
+	
+	// console.log(sql);
 	connection.query(sql, (err, results) => {
 		if(err) return res.status(200).json({
 			success: false,
