@@ -57,7 +57,7 @@ router.post('/add_items', passport.authenticate('jwt', {session: false}), (req, 
 	// console.log(req.body)
 	const sql = `
 	INSERT INTO nfts 
-	VALUES(default, ${chainId}, '${nftAddress.toLowerCase()}', ${tokenId}, '${tokenURI}', '${owner.toLowerCase()}', unix_timestamp(), ${collectionId}, ${categoryId}, 0, 0)
+	VALUES(default, ${chainId}, '${nftAddress.toLowerCase()}', ${tokenId}, '${tokenURI}', '${owner.toLowerCase()}', unix_timestamp(), ${collectionId}, ${categoryId}, 0, 0, 0)
 	`
 	// console.log(sql)
 	connection.execute(sql, (err, results, fields) => {
@@ -390,9 +390,9 @@ router.post('/remove_favour', passport.authenticate('jwt', {session: false}), (r
 router.get('/get_my_all_nfts/:chainId/:nftAddress', passport.authenticate('jwt', {session: false}), (req, res) => {
 	const offset = req.params.offset;
 	const rows = req.query.rows;
-	const sql = `SELECT * from nfts 
+	const sql = `SELECT * from nfts as n
 							 WHERE chainId = ${req.params.chainId} and lower(nftAddress) = '${req.params.nftAddress.toLowerCase()}' 
-							 and lower(owner) = '${req.user.address.toLowerCase()}'
+							 and n.ban = 0 and lower(owner) = '${req.user.address.toLowerCase()}'
 							 ${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
 	connection.query(sql, (err, results, fields) => {
 		if(err) return res.status(200).json({
@@ -423,9 +423,9 @@ router.get('/get_my_all_nfts/:chainId/:nftAddress', passport.authenticate('jwt',
  router.get('/get_my_unlist_nfts/:chainId/:nftAddress', passport.authenticate('jwt', {session: false}), (req, res) => {
 	const offset = req.params.offset;
 	const rows = req.query.rows;
-	const sql = `SELECT * from nfts 
+	const sql = `SELECT * from nfts as n
 							 WHERE chainId = ${req.params.chainId} and lower(nftAddress) = '${req.params.nftAddress.toLowerCase()}' 
-							 and lower(owner) = '${req.user.address.toLowerCase()}' and status = 0
+							 and n.ban = 0 and lower(owner) = '${req.user.address.toLowerCase()}' and status = 0
 							 ${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
 		connection.query(sql, (err, results, fields) => {
 		if(err) return res.status(200).json({
@@ -456,9 +456,9 @@ router.get('/get_my_all_nfts/:chainId/:nftAddress', passport.authenticate('jwt',
  router.get('/get_my_listable_nfts/:chainId/:nftAddress', passport.authenticate('jwt', {session: false}), (req, res) => {
 	const offset = req.params.offset;
 	const rows = req.query.rows;
-	const sql = `SELECT * from nfts 
+	const sql = `SELECT * from nfts as n
 							 WHERE chainId = ${req.params.chainId} and lower(nftAddress) = '${req.params.nftAddress.toLowerCase()}' 
-							 and lower(owner) = '${req.user.address.toLowerCase()}' and status = 1
+							 and n.ban = 0 and lower(owner) = '${req.user.address.toLowerCase()}' and status = 1
 							 ${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
 	connection.query(sql, (err, results, fields) => {
 		if(err) return res.status(200).json({
@@ -483,10 +483,12 @@ router.get('/get_my_all_nfts/:chainId/:nftAddress', passport.authenticate('jwt',
  * @param id the database id
  */
 router.get('/get_nft_by_id/:chainId/:nftAddress/:tokenId', (req, res) => {
-	const sql = `SELECT n.*, o.auctionId, o.count, o.paymentToken, o.amount, o.sellerAddress, o.blockNumber, o.transactionHash, o.action, o.createdAt as orderCreateAt, o.startingPrice, o.startDate, o.endDate, o.buyerAmount, o.buyerAddress, o.buyerBlockNumber, o.buyerTransactionHash, o.buyerAction, o.buyerTimestamp, o.cancelSale from nfts n
+	const sql = `SELECT n.*, o.auctionId, o.count, o.paymentToken, o.amount, o.sellerAddress, o.blockNumber, o.transactionHash, o.action, o.createdAt as orderCreateAt, 
+	o.startingPrice, o.startDate, o.endDate, o.buyerAmount, o.buyerAddress, o.buyerBlockNumber, o.buyerTransactionHash, o.buyerAction, o.buyerTimestamp, 
+	o.cancelSale from nfts n
 	left join orders o
 	on n.tokenId = o.tokenId and n.chainId = o.chainId and n.nftAddress = o.nftAddress
-	where n.tokenId = ${req.params.tokenId} and n.chainId = ${req.params.chainId} and lower(n.nftAddress) = '${req.params.nftAddress.toLowerCase()}'
+	where n.tokenId = ${req.params.tokenId} and n.chainId = ${req.params.chainId} and lower(n.nftAddress) = '${req.params.nftAddress.toLowerCase()}' and n.ban = 0
 	order by o.id desc
 	limit 1;`
 	// console.log(sql);
@@ -524,7 +526,7 @@ router.get('/get_nft_by_id/:chainId/:nftAddress/:tokenId', (req, res) => {
 							on n.chainId = o.chainId and lower(n.nftAddress) = lower(o.nftAddress) and n.tokenId = o.tokenId
 							WHERE n.chainId = ${req.params.chainId} and lower(n.nftAddress) = '${req.params.nftAddress.toLowerCase()}' 
 							and lower(o.sellerAddress) = '${req.user.address.toLowerCase()}' and isNull(o.buyerAddress) 
-							and lower(n.owner) = '${req.user.address.toLowerCase()}' and lower(o.contractAddress) = '${req.params.contractAddress.toLowerCase()}' 
+							and n.ban = 0 and lower(n.owner) = '${req.user.address.toLowerCase()}' and lower(o.contractAddress) = '${req.params.contractAddress.toLowerCase()}' 
 							${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
 	// console.log(sql);
 	connection.query(sql, (err, results, fields) => {
@@ -561,7 +563,7 @@ router.get('/get_nft_by_id/:chainId/:nftAddress/:tokenId', (req, res) => {
 							on n.chainId = o.chainId and lower(n.nftAddress) = lower(o.nftAddress) and n.tokenId = o.tokenId
 							where n.chainId = ${req.params.chainId} and lower(n.nftAddress) = '${req.params.nftAddress.toLowerCase()}' 
 							and lower(o.sellerAddress) = '${req.user.address.toLowerCase()}' and not isNull(o.buyerAddress) 
-							and lower(n.owner) = '${req.user.address.toLowerCase()}' and lower(o.contractAddress) = '${req.params.contractAddress.toLowerCase()}'
+							and n.ban = 0 and lower(n.owner) = '${req.user.address.toLowerCase()}' and lower(o.contractAddress) = '${req.params.contractAddress.toLowerCase()}'
 							${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
 	// console.log(sql)
 	connection.query(sql, (err, results, fields) => {
@@ -595,7 +597,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 	const rows = req.query.rows;
 	const sql = `select * from favour f left join nfts n 
 							on lower(n.nftAddress) = lower(f.nftAddress) and n.tokenId = f.tokenId and n.chainId = f.chainId 
-							where lower(f.fromAddress) = '${req.user.address.toLowerCase()}' and lower(f.nftAddress) = '${req.params.nftAddress.toLowerCase()}' and f.chainId = ${req.params.chainId}
+							where n.ban = 0 and lower(f.fromAddress) = '${req.user.address.toLowerCase()}' and lower(f.nftAddress) = '${req.params.nftAddress.toLowerCase()}' and f.chainId = ${req.params.chainId}
 							${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
 	connection.query(sql, (err, results, fields) => {
 		if(err) return res.status(200).json({
@@ -628,7 +630,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 	const rows = req.query.rows;
 	const sql = `select * from staking s left join nfts n 
 							on lower(n.nftAddress) = lower(s.nftAddress) and n.tokenId = s.tokenId and n.chainId = s.chainId 
-							where lower(s.fromAddress) = '${req.user.address.toLowerCase()}' and lower(s.nftAddress) = '${req.params.nftAddress.toLowerCase()}' and s.chainId = ${req.params.chainId}
+							where n.ban = 0 and lower(s.fromAddress) = '${req.user.address.toLowerCase()}' and lower(s.nftAddress) = '${req.params.nftAddress.toLowerCase()}' and s.chainId = ${req.params.chainId}
 							${offset === undefined || rows === undefined ? '' : `limit ${offset}, ${rows}`}`;
 	connection.query(sql, (err, results, fields) => {
 		if(err) return res.status(200).json({
@@ -703,7 +705,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 		on n.chainId = o.chainId and lower(n.nftAddress) = lower(o.nftAddress) and n.tokenId = o.tokenId
 		left join staking s
 		on n.chainId = s.chainId and lower(n.nftAddress) = lower(s.nftAddress) and n.tokenId = s.tokenId
-		where n.chainId = ${req.body.chainId} and lower(n.nftAddress) = '${req.body.nftAddress.toLowerCase()}' 
+		where n.ban = 0 and n.chainId = ${req.body.chainId} and lower(n.nftAddress) = '${req.body.nftAddress.toLowerCase()}' 
 		${req.body.collection === undefined ? '' : `and n.collectionId = ${req.body.collection}`}
 		${req.body.category === undefined ? '' : `and n.categoryId = ${req.body.category}`}
 		${statusCondition}
