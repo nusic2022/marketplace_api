@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 router.get('/', (req, res) => {
 	const sql = `SELECT * FROM nfts`;
 	connection.query(sql, (err, results, fields) => {
-		console.log(results)
+		// console.log(results)
 		if(results === undefined || results.length === 0) {
 			return res.status(404).json({
 				success: false,
@@ -28,7 +28,7 @@ router.get('/get_categories', (req, res) => {
 	const sql = `SELECT * FROM category`;
 	connection.query(sql, (err, results, fields) => {
 		let arr = []
-		console.log(results)
+		// console.log(results)
 		for(let i=0;i<results.length; i++) {
 			let _resultObj = [results[i]["id"], results[i]["name"]]
 			arr = arr.concat([_resultObj])
@@ -721,7 +721,7 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 
 	// filter the multi cancelSale orders, just get the latest one
 	sql = `select *, max(a.auctionId) from(${sql}) as a group by a.tokenId`;
-	
+
 	// console.log(sql);
 	connection.query(sql, (err, results) => {
 		if(err) return res.status(200).json({
