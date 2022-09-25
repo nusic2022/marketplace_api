@@ -678,22 +678,17 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 	// order by : createAt, price, staking, like, tokenId
 	// Desc by: createAtDesc, priceDesc, stakingDesc, likeDesc, tokenIdDesc
 
-	// 0- all onsale
+	// 0- all onsale exclue me
 	// 1- my onsale nfts(req.body.seller is required), 
-	// 2- my sold nfts(req.body.seller is required)
 	// 3- my unlisted nfts(req.body.seller is required)
+	// 5- unlisted exclue me
 	const type = req.body.type === undefined ? 4 : req.body.type; 
 
 	let statusCondition = '';
-	if(type === 0) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and o.sellerAddress is not null and lower(o.sellerAddress) <> lower('${req.body.seller}') and o.buyerAddress is null`;
-	// else if(type === 1) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is not null`;
-	// else if(type === 2) statusCondition = `and o.sellerAddress is null`;
-	// else if(type === 3) statusCondition = `and o.sellerAddress is not null and o.buyerAddress is null`;
-	// else if(type === 4) statusCondition = `and o.buyerAddress is null`;
-	// else if(type === 5) statusCondition = `and o.sellerAddress is null or (o.sellerAddress is not null and o.buyerAddress is null)`;
-	else if(type === 1) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and lower(o.sellerAddress) = lower('${req.body.seller}') and o.buyerAddress is null`;
-	else if(type === 2) statusCondition = `and lower(o.sellerAddress) = lower('${req.body.seller}') and o.buyerAddress is not null`;
-	else if(type === 3) statusCondition = `and lower(n.owner) = lower('${req.body.seller}')`;
+			 if(type === 0) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and o.sellerAddress is not null and lower(o.sellerAddress) <> lower('${req.body.seller}') and o.buyerAddress is null`;
+	else if(type === 1) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and o.sellerAddress is not null and lower(o.sellerAddress) = lower('${req.body.seller}') and o.buyerAddress is null`;
+	else if(type === 3) statusCondition = `and lower(n.owner) = lower('${req.body.seller}') and o.sellerAddress is null`;
+	else if(type === 5) statusCondition = `and lower(n.owner) <> lower('${process.env.MARKETPLACE_ADDRESS}') and lower(n.owner) <> lower('${req.body.seller}') and o.sellerAddress is null`;
 
 	let sql = 
 		`select n.*, 
