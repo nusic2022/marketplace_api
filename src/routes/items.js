@@ -687,8 +687,8 @@ router.get('/get_my_favour_nfts/:chainId/:nftAddress', passport.authenticate('jw
 	let statusCondition = '';
 			 if(type === 0) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and o.sellerAddress is not null and lower(o.sellerAddress) <> lower('${req.body.seller}') and o.buyerAddress is null`;
 	else if(type === 1) statusCondition = `and lower(n.owner) = lower('${process.env.MARKETPLACE_ADDRESS}') and o.sellerAddress is not null and lower(o.sellerAddress) = lower('${req.body.seller}') and o.buyerAddress is null`;
-	else if(type === 3) statusCondition = `and lower(n.owner) = lower('${req.body.seller}') and o.sellerAddress is null`;
-	else if(type === 5) statusCondition = `and lower(n.owner) <> lower('${process.env.MARKETPLACE_ADDRESS}') and lower(n.owner) <> lower('${req.body.seller}') and o.sellerAddress is null`;
+	else if(type === 3) statusCondition = `and lower(n.owner) = lower('${req.body.seller}')`;
+	else if(type === 5) statusCondition = `and lower(n.owner) <> lower('${process.env.MARKETPLACE_ADDRESS}') and lower(n.owner) <> lower('${req.body.seller}')`;
 
 	let sql = 
 		`select n.*, 
